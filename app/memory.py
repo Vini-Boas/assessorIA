@@ -13,7 +13,7 @@ _mongo      = get_mongo_conn()
 db          = _mongo["assessor"]
 col_sessoes = db["sessoes"]
 
-col_sessoes.create_index("session_id")
+col_sessoes.create_index("user_id")
 col_sessoes.create_index("iniciada_em")
 _sessoes_ativas: dict = {}
 
@@ -34,7 +34,7 @@ def _gerar_resumo(mensagens: list[dict]) -> str:
         _PROMPT_RESUMO.format(conversa=conversa)
     ).content.strip()
 
-def _doc_id_da_sessao(session_id: str) -> str | None:
+def _doc_id_da_sessao(user_id: str) -> str | None:
     """
     Descobre o documento da sessão EM ANDAMENTO deste usuário, ou None.
 
@@ -48,34 +48,34 @@ def _doc_id_da_sessao(session_id: str) -> str | None:
     cada reinício, e encerrar_sessao() não acharia nada para resumir — sem erro
     nenhum, apenas silêncio.
     """
-    doc_id = _sessoes_ativas.get(session_id)
+    doc_id = _sessoes_ativas.get(user_id)
     if doc_id:
         return doc_id
 
     doc = col_sessoes.find_one(
-        {"session_id": session_id, "resumo": {"$in": ["", None]}},
+        {"user_id": user_id, "resumo": {"$in": ["", None]}},
         {"_id": 1},
         sort=[("iniciada_em", -1)],
     )
     if not doc:
         return None
 
-    _sessoes_ativas[session_id] = doc["_id"]   # repovoa o cache
+    _sessoes_ativas[user_id] = doc["_id"]   # repovoa o cache
     return doc["_id"]
 
 # ==============================================================================
 # FUNÇÕES
 # ==============================================================================
-def iniciar_sessao(session_id: str) -> None:
+def iniciar_sessao(user_id: str) -> None:
     """
-    Garante que exista um documento de sessão aberto para este session_id.
+    Garante que exista um documento de sessão aberto para este user_id.
 
     Idempotente: se já existir uma sessão em andamento (aberta, sem resumo)
-    para este session_id, não faz nada — reaproveita o documento existente.
+    para este user_id, não faz nada — reaproveita o documento existente.
     Só cria um documento novo (com _id gerado via uuid4) quando não há
     nenhum ainda aberto.
     """
-    if _doc_id_da_sessao(session_id):
+    if _doc_id_da_sessao(user_id):
         return
 
     doc_id = str(uuid.uuid4())
@@ -83,18 +83,18 @@ def iniciar_sessao(session_id: str) -> None:
 
     col_sessoes.insert_one({
         "_id":           doc_id,
-        "session_id":    session_id,
+        "user_id":       user_id,
         "iniciada_em":   agora,
         "atualizada_em": agora,
         "resumo":        "",
         "mensagens":     [],
     })
 
-    _sessoes_ativas[session_id] = doc_id
+    _sessoes_ativas[user_id] = doc_id
 
-def salvar_mensagem(session_id: str, role: str, content: str) -> None:
+def salvar_mensagem(user_id: str, role: str, content: str) -> None:
     """ Adiciona uma mensagem ao array de mensagens da sessão ativa. """
-    doc_id = _doc_id_da_sessao(session_id)
+    doc_id = _doc_id_da_sessao(user_id)
 
     col_sessoes.update_one(
         {"_id": doc_id},
@@ -104,7 +104,7 @@ def salvar_mensagem(session_id: str, role: str, content: str) -> None:
         },
     )
 
-def encerrar_sessao(session_id) -> str:
+def encerrar_sessao(user_id) -> str:
     """
     Encerra a sessão ativa:
       1. Carrega mensagens do MongoDB
@@ -113,7 +113,7 @@ def encerrar_sessao(session_id) -> str:
       4. Remove sessão do estado interno
     Retorna o resumo gerado ou string vazia se não houver mensagens.
     """
-    doc_id = _doc_id_da_sessao(session_id)
+    doc_id = _doc_id_da_sessao(user_id)
 
     if not doc_id:
         return ""
@@ -121,7 +121,7 @@ def encerrar_sessao(session_id) -> str:
     doc = col_sessoes.find_one({"_id": doc_id})
 
     if not doc or not doc.get("mensagens"):
-        _sessoes_ativas.pop(session_id, None)
+        _sessoes_ativas.pop(user_id, None)
         return ""
 
     resumo = _gerar_resumo(doc["mensagens"])
@@ -131,11 +131,11 @@ def encerrar_sessao(session_id) -> str:
         {"$set": {"resumo": resumo, "atualizada_em": _agora()}},
     )
 
-    _sessoes_ativas.pop(session_id)
+    _sessoes_ativas.pop(user_id)
 
     return resumo
 
-def recuperar_historico(session_id: str, busca: str = "", limite: int = 3) -> list[dict]:
+def recuperar_historico(user_id: str, busca: str = "", limite: int = 3) -> list[dict]:
     """
     Recupera resumos de sessões ANTERIORES (já encerradas) de um usuário.
 
@@ -143,11 +143,11 @@ def recuperar_historico(session_id: str, busca: str = "", limite: int = 3) -> li
     por ele; senão, traz as sessões mais recentes. As mensagens completas
     NÃO vêm aqui — para isso use recuperar_mensagens(doc_id).
 
-    session_id : identifica o usuário (hoje fixo, depois dinâmico)
-    busca      : termo opcional para filtrar resumos relevantes
-    limite     : máximo de sessões retornadas (mais recentes primeiro)
+    user_id : identifica o usuário (hoje fixo, depois dinâmico)
+    busca   : termo opcional para filtrar resumos relevantes
+    limite  : máximo de sessões retornadas (mais recentes primeiro)
     """
-    filtro = {"session_id": session_id}
+    filtro = {"user_id": user_id}
 
     if busca:
         filtro["resumo"] = {"$regex": busca, "$options": "i"}

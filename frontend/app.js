@@ -13,7 +13,7 @@ const threadEmpty = document.getElementById("thread-empty");
 const composer = document.getElementById("composer");
 const inputPergunta = document.getElementById("pergunta");
 const botaoEnviar = document.getElementById("enviar");
-const sessionIdEl = document.getElementById("session-id");
+const userIdEl = document.getElementById("user-id");
 const resetButton = document.getElementById("reset-session");
 const statusDot = document.getElementById("status-dot");
 const hint = document.getElementById("hint");
@@ -21,7 +21,7 @@ const hint = document.getElementById("hint");
 // ============================================================
 // Sessão
 // ============================================================
-const SESSION_STORAGE_KEY = "assistente_session_id";
+const USER_STORAGE_KEY = "assistente_user_id";
 
 async function getIP() {
   try {
@@ -34,7 +34,7 @@ async function getIP() {
   }
 }
 
-function gerarSessionIdTemporario() {
+function gerarUserIdTemporario() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
@@ -47,18 +47,18 @@ function gerarSessionIdTemporario() {
 }
 
 // O IP é a identidade permanente da pessoa;
-async function obterSessionId() {
+async function obterUserId() {
   const ip = await getIP();
   if (ip) {
-    localStorage.setItem(SESSION_STORAGE_KEY, ip);
+    localStorage.setItem(USER_STORAGE_KEY, ip);
     return ip;
   }
 
-  const emCache = localStorage.getItem(SESSION_STORAGE_KEY);
+  const emCache = localStorage.getItem(USER_STORAGE_KEY);
   if (emCache) return emCache;
 
-  const temporario = gerarSessionIdTemporario();
-  localStorage.setItem(SESSION_STORAGE_KEY, temporario);
+  const temporario = gerarUserIdTemporario();
+  localStorage.setItem(USER_STORAGE_KEY, temporario);
   return temporario;
 }
 
@@ -116,30 +116,30 @@ async function carregarConversas(id) {
 // abre uma conversa nova para a mesma pessoa com um UUID aleatório
 async function iniciarNovaSessao() {
   setHint("Encerrando conversa anterior...");
-  await encerrarSessaoNoBackend(sessionId);
+  await encerrarSessaoNoBackend(userId);
 
   thread.innerHTML = "";
   thread.appendChild(threadEmpty);
   threadEmpty.style.display = "block";
 
-  await registrarSessaoNoBackend(sessionId);
-  await carregarConversas(sessionId);
+  await registrarSessaoNoBackend(userId);
+  await carregarConversas(userId);
   setHint("Nova conversa iniciada.");
 }
 
-function exibirSessionId(id) {
-  sessionIdEl.textContent = id.length > 12 ? id.slice(0, 8) + "…" : id;
-  sessionIdEl.title = id;
+function exibirUserId(id) {
+  userIdEl.textContent = id.length > 12 ? id.slice(0, 8) + "…" : id;
+  userIdEl.title = id;
 }
 
-let sessionId = null;
+let userId = null;
 
 (async function inicializarSessao() {
-  sessionId = await obterSessionId();
-  exibirSessionId(sessionId);
-  await registrarSessaoNoBackend(sessionId);
-  await carregarHistorico(sessionId);
-  await carregarConversas(sessionId);
+  userId = await obterUserId();
+  exibirUserId(userId);
+  await registrarSessaoNoBackend(userId);
+  await carregarHistorico(userId);
+  await carregarConversas(userId);
 })();
 
 resetButton.addEventListener("click", () => {
@@ -290,14 +290,14 @@ composer.addEventListener("submit", async (evento) => {
   botaoEnviar.disabled = true;
 
   try {
-    if (!sessionId) {
-      sessionId = await obterSessionId();
-      exibirSessionId(sessionId);
-      await registrarSessaoNoBackend(sessionId);
+    if (!userId) {
+      userId = await obterUserId();
+      exibirUserId(userId);
+      await registrarSessaoNoBackend(userId);
     }
 
-    // Fetch para o endpoint /chat com session_id e a mensagem no corpo
-    const response = await fetch(`${CHAT_ENDPOINT}?session_id=${encodeURIComponent(sessionId)}`, {
+    // Fetch para o endpoint /chat com user_id e a mensagem no corpo
+    const response = await fetch(`${CHAT_ENDPOINT}?user_id=${encodeURIComponent(userId)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: pergunta }),

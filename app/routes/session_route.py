@@ -15,6 +15,7 @@ pedido, chama quem sabe fazer o trabalho (app.memory) e devolve o resultado.
 Toda a lógica de resumo mora no memory.py.
 """
 
+from typing import Optional
 from fastapi import APIRouter
 
 from app.memory import encerrar_sessao, iniciar_sessao, recuperar_historico
@@ -23,19 +24,19 @@ from app.schemas import SessionResponse
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
-@router.post("/{session_id}/iniciar", response_model=SessionResponse)
-def iniciar(session_id: str) -> SessionResponse:
-    iniciar_sessao(session_id)
-    return SessionResponse(session_id=session_id, resumo=None)
+@router.post("/{user_id}/iniciar", response_model=SessionResponse)
+def iniciar(user_id: str, session_id: Optional[str] = None) -> SessionResponse:
+    iniciar_sessao(user_id, session_id)
+    return SessionResponse(session_id=user_id, resumo=None)
 
-@router.post("/{session_id}/encerrar", response_model=SessionResponse)
-def encerrar(session_id: str) -> SessionResponse:
-    resumo = encerrar_sessao(session_id)
-    return SessionResponse(session_id=session_id, resumo=resumo or None)
+@router.post("/{user_id}/encerrar", response_model=SessionResponse)
+def encerrar(user_id: str) -> SessionResponse:
+    resumo = encerrar_sessao(user_id)
+    return SessionResponse(session_id=user_id, resumo=resumo or None)
 
-@router.get("/{session_id}/passadas", response_model=list[SessionResponse])
-def listar_passadas(session_id: str) -> list[SessionResponse]:
-    passadas = recuperar_historico(session_id=session_id, limite= 20)
+@router.get("/{user_id}/passadas", response_model=list[SessionResponse])
+def listar_passadas(user_id: str) -> list[SessionResponse]:
+    passadas = recuperar_historico(user_id=user_id, limite= 20)
     return [
         SessionResponse(session_id=doc.get("doc_id"), resumo=doc.get("resumo"))
         for doc in passadas

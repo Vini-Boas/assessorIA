@@ -179,7 +179,7 @@ fluxo_agentes = grafo.compile(checkpointer=memory)
 # ==============================================================================
 # FLUXO PRINCIPAL
 # ==============================================================================
-def executar_fluxo_assessor(pergunta_usuario: str, session_id: str) -> str:
+def executar_fluxo_assessor(pergunta_usuario: str, user_id: str) -> str:
     estado_inicial = {
         "messages":         [{"role": "human", "content": pergunta_usuario}],
         "agentes_chamados": [],
@@ -188,16 +188,16 @@ def executar_fluxo_assessor(pergunta_usuario: str, session_id: str) -> str:
     }
 
     texto_anonimizado, _ = anonimizar_entrada(pergunta_usuario)
-    salvar_mensagem(session_id, "human", texto_anonimizado)
+    salvar_mensagem(user_id, "human", texto_anonimizado)
 
     estado_final = fluxo_agentes.invoke(
         estado_inicial,
-        config={"configurable": {"thread_id": session_id}},
+        config={"configurable": {"thread_id": user_id}},
     )
 
     resposta_final = estado_final["messages"][-1].text
-    
-    salvar_mensagem(session_id, "assistant", resposta_final)
+
+    salvar_mensagem(user_id, "assistant", resposta_final)
 
     print(f"[debug] agentes chamados: {estado_final['agentes_chamados']}")
     return resposta_final

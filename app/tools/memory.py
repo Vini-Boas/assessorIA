@@ -9,18 +9,6 @@ from langchain_core.runnables import RunnableConfig
 
 from app.memory import recuperar_historico
 
-# ==============================================================================
-# POR QUE user_id E NÃO session_id
-# ------------------------------------------------------------------------------
-# O front gera um UUID novo a cada "nova sessão". Esse UUID é a CONVERSA
-# (vira thread_id do checkpointer). Se buscarmos conversas anteriores por ele,
-# o resultado é sempre vazio: cada conversa tem um id diferente da anterior.
-#
-# Para achar o passado precisamos de um identificador ESTÁVEL do usuário —
-# o user_id. Enquanto o front não mandar um, o fallback para thread_id mantém
-# a tool funcionando (e é o suficiente para testar com um id fixo à mão).
-# ==============================================================================
-
 @tool
 def buscar_historico(busca: str, config: RunnableConfig) -> str:
     """Consulta conversas ANTERIORES do usuário (sessões já encerradas).
