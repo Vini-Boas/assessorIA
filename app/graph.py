@@ -1,0 +1,180 @@
+import operator
+from typing import Annotated
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph import StateGraph, MessagesState, END
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import RemoveMessage
+from app.agents import (
+    router_app,
+    agenda_app,
+    financeiro_app,
+    orquestrador_app,
+    faq_app
+)
+from app.guardrail import (
+    guardrail_saida,
+    guardrail_entrada,
+    anonimizar_entrada
+)
+from app.memory import salvar_mensagem
+
+# ==============================================================================
+# ESTADO
+# MessagesState já traz: messages: Annotated[list[AnyMessage], add_messages]
+# O checkpointer propaga automaticamente para os subgrafos adicionados via add_node
+# ==============================================================================
+class Estado(MessagesState):
+    agentes_chamados: Annotated[list[str], operator.add]
+    rota:             str
+    mapa_pii:         dict
+    
+
+# ==============================================================================
+# NÓ ROTEADOR — necessário apenas para extrair a rota sem poluir messages
+# ==============================================================================
+def no_roteador(estado: Estado, config: RunnableConfig) -> dict:
+    saida = router_app.invoke({"messages": list(estado["messages"])}, config=config)
+    texto = saida["messages"][-1].text
+
+    if "ROUTE=" not in texto:
+        return {
+            "agentes_chamados": ["roteador"],
+            "rota":             "fim",
+            "messages":         [{"role": "assistant", "content": texto}],
+        }
+
+    rota = "fim"
+    for linha in texto.splitlines():
+        if linha.startswith("ROUTE="):
+            rota = linha.split("=", 1)[1].strip()
+            break
+
+    return {
+        "agentes_chamados": ["roteador", rota],
+        "rota":             rota,
+    }
+
+# ==============================================================================
+# NÓ ORQUESTRADOR — wrapper para capturar agentes_chamados via rota
+# ==============================================================================
+
+def no_orquestrador(estado: Estado) -> dict:
+    # Pega a última resposta do especialista (última AIMessage com conteúdo)
+    ultima_especialista = ""
+    for mensagem in reversed(estado["messages"]):
+        if mensagem.type == "ai" and mensagem.content:
+            ultima_especialista = mensagem.content
+            break
+    
+    saida = orquestrador_app.invoke({
+        "messages": {"role": "human", "content": ultima_especialista}
+    })
+
+    return {
+        "agentes_chamados": ["orquestrador"],
+        "messages":        [{"role": "assistant", "content": saida["messages"][-1].text}]
+    }
+
+# ==============================================================================
+# NÓ ENTRADA DE GUARDRAIL — Guardrail para a entrada
+# ==============================================================================
+
+def no_entrada_guardrail(estado: Estado) -> dict:
+    # Pega a última resposta do especialista (última AIMessage com conteúdo)
+    pergunta_usuario = estado["messages"][-1]
+
+    pergunta_anonimizada, mapa_PII = anonimizar_entrada(pergunta_usuario.text)
+
+    guardrail_saida = guardrail_entrada(pergunta_anonimizada)
+
+    if guardrail_saida["bloqueado"]:
+        return {
+            "messages": [{"role": "assistant", "content": guardrail_saida["mensagem"]}],
+            "rota": "fim"
+        }
+    else:
+        return {
+            "messages": [
+                RemoveMessage(pergunta_usuario.id), 
+                {"role": "human", "content": pergunta_anonimizada}
+            ],
+            "mapa_pii": mapa_PII,
+            "rota":     "roteador"
+        }
+
+# ==============================================================================
+# FUNÇÃO DE DECISÃO
+# ==============================================================================
+def decidir_especialista(estado: Estado) -> str:
+    return estado["rota"] if estado["rota"] in ("financeiro", "agenda", "faq") else "fim"
+def decidir_guardrail(estado: Estado) -> str:
+    return estado["rota"]
+
+# ==============================================================================
+# GRAFO
+# ==============================================================================
+grafo = StateGraph(Estado)
+
+grafo.add_node("roteador",          no_roteador)
+grafo.add_node("guardrail_entrada", no_entrada_guardrail)
+grafo.add_node("guardrail_saida",   guardrail_saida)
+grafo.add_node("agenda",            agenda_app)   # subgrafo direto — checkpointer propaga
+grafo.add_node("financeiro",        financeiro_app)   # subgrafo direto — checkpointer propaga
+grafo.add_node("faq",               faq_app)           # subgrafo direto
+grafo.add_node("orquestrador",      no_orquestrador)
+
+grafo.set_entry_point("guardrail_entrada")
+
+grafo.add_conditional_edges(
+    "guardrail_entrada",
+    decidir_guardrail,
+    {
+        "roteador": "roteador",
+        "fim":      END,
+    },
+)
+
+grafo.add_conditional_edges(
+    "roteador",
+    decidir_especialista,
+    {
+        "financeiro": "financeiro",
+        "agenda":     "agenda",
+        "faq":        "faq",
+        "fim":        END,
+    },
+)
+
+grafo.add_edge("financeiro",        "orquestrador")
+grafo.add_edge("agenda",            "orquestrador")
+grafo.add_edge("orquestrador",      END)
+grafo.add_edge("faq",               END)
+
+memory = MemorySaver()
+fluxo_agentes = grafo.compile(checkpointer=memory)
+
+# ==============================================================================
+# FLUXO PRINCIPAL
+# ==============================================================================
+def executar_fluxo_assessor(pergunta_usuario: str, session_id: str) -> str:
+    estado_inicial = {
+        "messages":         [{"role": "human", "content": pergunta_usuario}],
+        "agentes_chamados": [],
+        "rota":             "",
+        "mapa_pii":         {},
+    }
+
+    texto_anonimizado, _ = anonimizar_entrada(pergunta_usuario)
+    salvar_mensagem(session_id, "human", texto_anonimizado)
+
+    estado_final = fluxo_agentes.invoke(
+        estado_inicial,
+        config={"configurable": {"thread_id": session_id}},
+    )
+
+    resposta_final = estado_final["messages"][-1].text
+    
+    salvar_mensagem(session_id, "assistant", resposta_final)
+
+    print(f"[debug] agentes chamados: {estado_final['agentes_chamados']}")
+    return resposta_final
