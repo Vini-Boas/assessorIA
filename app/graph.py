@@ -1,5 +1,6 @@
 import operator
 from typing import Annotated
+from groq import BadRequestError as GroqBadRequestError
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, MessagesState, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -32,8 +33,30 @@ class Estado(MessagesState):
 # ==============================================================================
 # NÓ ROTEADOR — necessário apenas para extrair a rota sem poluir messages
 # ==============================================================================
+TENTATIVAS_ROTEADOR = 3
+
 def no_roteador(estado: Estado, config: RunnableConfig) -> dict:
-    saida = router_app.invoke({"messages": list(estado["messages"])}, config=config)
+    saida = None
+    for tentativa in range(1, TENTATIVAS_ROTEADOR + 1):
+        try:
+            saida = router_app.invoke({"messages": list(estado["messages"])}, config=config)
+            break
+        except GroqBadRequestError as erro:
+            # Instabilidade conhecida dos modelos gpt-oss no Groq: o parser do
+            # formato "harmony" às vezes gruda o token de canal (<|channel|>...)
+            # no nome da tool, gerando um tool call inválido (tool_use_failed).
+            # Costuma ser transitório — vale tentar de novo antes de desistir.
+            print(f"[roteador] tool_use_failed na tentativa {tentativa}/{TENTATIVAS_ROTEADOR}: {erro}")
+            if tentativa == TENTATIVAS_ROTEADOR:
+                return {
+                    "agentes_chamados": ["roteador"],
+                    "rota":             "fim",
+                    "messages":         [{
+                        "role":    "assistant",
+                        "content": "Desculpe, tive um problema ao processar sua mensagem. Pode tentar novamente?",
+                    }],
+                }
+
     texto = saida["messages"][-1].text
 
     if "ROUTE=" not in texto:
