@@ -35,7 +35,7 @@ def encerrar(session_id: str) -> SessionResponse:
 
 @router.get("/{session_id}/passadas", response_model=list[SessionResponse])
 def listar_passadas(session_id: str) -> list[SessionResponse]:
-    passadas = recuperar_historico(session_id=session_id)
+    passadas = recuperar_historico(session_id=session_id, limite= 20)
     return [
         SessionResponse(session_id=doc.get("doc_id"), resumo=doc.get("resumo"))
         for doc in passadas

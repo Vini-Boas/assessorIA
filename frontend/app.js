@@ -46,15 +46,7 @@ function gerarSessionIdTemporario() {
   });
 }
 
-// O IP é a identidade permanente da pessoa: sobrevive a localStorage limpo e a
-// trocar de aba/navegador na mesma máquina, sem exigir login. Ele é buscado de
-// novo a cada carregamento (o IP pode mudar) e o cache em localStorage serve
-// só de fallback para quando o serviço de IP falha (offline, bloqueado,
-// rate-limit) — sem ele a sessão trocaria de identidade a cada falha.
-//
-// Custo aceito: todo mundo atrás do mesmo IP (rede de escritório, Wi-Fi
-// público, CGNAT de operadora) compartilha a mesma sessão e o mesmo
-// histórico.
+// O IP é a identidade permanente da pessoa;
 async function obterSessionId() {
   const ip = await getIP();
   if (ip) {
@@ -86,8 +78,7 @@ async function encerrarSessaoNoBackend(id) {
   }
 }
 
-// Carrega o histórico da conversa em andamento (se houver) e renderiza no
-// thread, na ordem em que veio da API (mais antiga primeiro).
+// Carrega o histórico da conversa em andamento
 async function carregarHistorico(id) {
   try {
     const response = await fetch(`${API_BASE}/chat/${encodeURIComponent(id)}`);
@@ -103,9 +94,26 @@ async function carregarHistorico(id) {
   }
 }
 
-// "Nova sessão" não troca a identidade (o IP é permanente) — apenas encerra a
+async function carregarConversas(id) {
+  try {
+    const response = await fetch(`${API_BASE}/sessions/${encodeURIComponent(id)}/passadas`);
+    if (!response.ok) {
+      throw new Error("Erro ao buscar conversas do servidor");
+    }
+    const conversas = await response.json();
+    sidebarList.innerHTML = "";
+    conversas.forEach(({ session_id, resumo }) => {
+      if (resumo != "")
+        adicionarConversa({ session_id, resumo });
+    });
+  } catch (error) {
+    console.error("Erro ao carregar conversas:", error);
+  }
+}
+
+// "Nova sessão" não troca a identidade (o IP) — apenas encerra a
 // conversa atual (gerando o resumo que alimenta a memória de longo prazo) e
-// abre uma conversa nova para a mesma pessoa.
+// abre uma conversa nova para a mesma pessoa com um UUID aleatório
 async function iniciarNovaSessao() {
   setHint("Encerrando conversa anterior...");
   await encerrarSessaoNoBackend(sessionId);
@@ -115,6 +123,7 @@ async function iniciarNovaSessao() {
   threadEmpty.style.display = "block";
 
   await registrarSessaoNoBackend(sessionId);
+  await carregarConversas(sessionId);
   setHint("Nova conversa iniciada.");
 }
 
@@ -130,6 +139,7 @@ let sessionId = null;
   exibirSessionId(sessionId);
   await registrarSessaoNoBackend(sessionId);
   await carregarHistorico(sessionId);
+  await carregarConversas(sessionId);
 })();
 
 resetButton.addEventListener("click", () => {
@@ -189,6 +199,30 @@ function adicionarMensagem({ tipo, texto, agentes }) {
   thread.appendChild(wrapper);
   rolarParaFinal();
   return wrapper;
+}
+
+const sidebarList = document.querySelector(".sidebar__list");
+
+function adicionarConversa({ session_id, resumo }) {
+  const wrapper = document.createElement("li");
+  wrapper.className = `sidebar__item`;
+
+  const button = document.createElement("button");
+  button.className = "sidebar__item-button";
+  button.setAttribute("type", "button");
+  wrapper.appendChild(button);
+
+  const id = document.createElement("span");
+  id.className = "sidebar__item-id";
+  id.textContent = session_id;
+  button.appendChild(id);
+
+  const resumo_item = document.createElement("span");
+  resumo_item.className = "sidebar__item-resumo";
+  resumo_item.textContent = resumo;
+  button.appendChild(resumo_item);
+
+  sidebarList.appendChild(wrapper);
 }
 
 function adicionarIndicadorDigitando() {
