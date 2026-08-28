@@ -164,6 +164,16 @@ function escaparHtml(texto) {
   return div.innerHTML;
 }
 
+// Converte markdown (respostas do assistente) em HTML seguro.
+// O texto vem de um LLM, então sempre sanitizamos antes de injetar no DOM.
+function renderizarMarkdown(texto) {
+  if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+    return escaparHtml(texto);
+  }
+  const html = marked.parse(texto, { breaks: true });
+  return DOMPurify.sanitize(html);
+}
+
 function rolarParaFinal() {
   thread.scrollTop = thread.scrollHeight;
 }
@@ -180,8 +190,8 @@ function adicionarMensagem({ tipo, texto, agentes }) {
   wrapper.appendChild(label);
 
   const bubble = document.createElement("div");
-  bubble.className = "message__bubble";
-  bubble.innerHTML = escaparHtml(texto);
+  bubble.className = "message__bubble message__bubble--md";
+  bubble.innerHTML = renderizarMarkdown(texto);
   wrapper.appendChild(bubble);
 
   if (agentes && agentes.length > 0) {
