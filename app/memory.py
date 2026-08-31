@@ -1,3 +1,4 @@
+from typing import Optional
 import uuid
 from datetime import datetime, timezone
 from app.llms import llm_rapido
@@ -66,7 +67,7 @@ def _doc_id_da_sessao(user_id: str) -> str | None:
 # ==============================================================================
 # FUNÇÕES
 # ==============================================================================
-def iniciar_sessao(user_id: str) -> None:
+def iniciar_sessao(user_id: str, session_id: Optional[str]) -> None:
     """
     Garante que exista um documento de sessão aberto para este user_id.
 
@@ -75,6 +76,10 @@ def iniciar_sessao(user_id: str) -> None:
     Só cria um documento novo (com _id gerado via uuid4) quando não há
     nenhum ainda aberto.
     """
+    if session_id:
+        _sessoes_ativas[user_id] = session_id
+        return
+
     if _doc_id_da_sessao(user_id):
         return
 

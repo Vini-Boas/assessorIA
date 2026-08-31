@@ -35,11 +35,31 @@ class Estado(MessagesState):
 # ==============================================================================
 TENTATIVAS_ROTEADOR = 3
 
+def _mensagens_para_roteador(mensagens: list) -> list:
+    """
+    Remove do histórico as tool calls/tool results dos especialistas antes de
+    repassar ao roteador.
+
+    O grafo compartilha um único `messages` entre roteador e especialistas
+    (agenda, financeiro, faq), cada um com seu próprio conjunto de tools. Se
+    uma AIMessage com tool_calls de um especialista (ex.: faq_retriever)
+    ficar no histórico, o modelo do roteador pode "repetir" esse tool_call ao
+    rotear a pergunta seguinte — e como essa tool não está no bind do
+    roteador, a Groq recusa a geração com 400 tool_use_failed. O roteador só
+    precisa dos turnos human/assistant para decidir a rota, não do rastro
+    interno de tools dos especialistas.
+    """
+    return [
+        m for m in mensagens
+        if not getattr(m, "tool_calls", None) and m.type != "tool"
+    ]
+
 def no_roteador(estado: Estado, config: RunnableConfig) -> dict:
     saida = None
+    mensagens = _mensagens_para_roteador(estado["messages"])
     for tentativa in range(1, TENTATIVAS_ROTEADOR + 1):
         try:
-            saida = router_app.invoke({"messages": list(estado["messages"])}, config=config)
+            saida = router_app.invoke({"messages": mensagens}, config=config)
             break
         except GroqBadRequestError as erro:
             # Instabilidade conhecida dos modelos gpt-oss no Groq: o parser do

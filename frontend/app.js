@@ -9,6 +9,7 @@ const CHAT_ENDPOINT = `${API_BASE}/chat`;
 // Elementos
 // ============================================================
 const thread = document.getElementById("thread");
+const sidebarList = document.querySelector(".sidebar__list");
 const threadEmpty = document.getElementById("thread-empty");
 const composer = document.getElementById("composer");
 const inputPergunta = document.getElementById("pergunta");
@@ -62,9 +63,12 @@ async function obterUserId() {
   return temporario;
 }
 
-async function registrarSessaoNoBackend(id) {
+async function registrarSessaoNoBackend(id, sessionId) {
   try {
-    await fetch(`${API_BASE}/sessions/${encodeURIComponent(id)}/iniciar`, { method: "POST" });
+    const url = sessionId
+      ? `${API_BASE}/sessions/${encodeURIComponent(id)}/iniciar?session_id=${encodeURIComponent(sessionId)}`
+      : `${API_BASE}/sessions/${encodeURIComponent(id)}/iniciar`;
+    await fetch(url, { method: "POST" });
   } catch (error) {
     console.error("Erro ao iniciar sessão no backend:", error);
   }
@@ -86,6 +90,7 @@ async function carregarHistorico(id) {
       throw new Error("Erro ao buscar histórico do servidor");
     }
     const mensagens = await response.json();
+    thread.innerHTML = "";
     mensagens.forEach(({ role, content }) => {
       adicionarMensagem({ tipo: role === "human" ? "user" : "assistant", texto: content });
     });
@@ -211,8 +216,6 @@ function adicionarMensagem({ tipo, texto, agentes }) {
   return wrapper;
 }
 
-const sidebarList = document.querySelector(".sidebar__list");
-
 function adicionarConversa({ session_id, resumo }) {
   const wrapper = document.createElement("li");
   wrapper.className = `sidebar__item`;
@@ -220,6 +223,7 @@ function adicionarConversa({ session_id, resumo }) {
   const button = document.createElement("button");
   button.className = "sidebar__item-button";
   button.setAttribute("type", "button");
+  button.addEventListener("click", () => abrirConversaPassada(session_id));
   wrapper.appendChild(button);
 
   const id = document.createElement("span");
@@ -233,6 +237,26 @@ function adicionarConversa({ session_id, resumo }) {
   button.appendChild(resumo_item);
 
   sidebarList.appendChild(wrapper);
+}
+
+async function abrirConversaPassada(sessionId) {
+  document
+    .querySelectorAll(".sidebar__item-button--active")
+    .forEach((el) => el.classList.remove("sidebar__item-button--active"));
+  const botaoClicado = [...sidebarList.querySelectorAll(".sidebar__item-button")].find(
+    (el) => el.querySelector(".sidebar__item-id")?.textContent === sessionId
+  );
+  botaoClicado?.classList.add("sidebar__item-button--active");
+
+  setHint("Abrindo conversa...");
+  await encerrarSessaoNoBackend(userId);
+  await registrarSessaoNoBackend(userId, sessionId);
+
+  thread.innerHTML = "";
+  thread.appendChild(threadEmpty);
+  threadEmpty.style.display = "block";
+  await carregarHistorico(userId);
+  setHint("");
 }
 
 function adicionarIndicadorDigitando() {
