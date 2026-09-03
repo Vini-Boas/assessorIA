@@ -17,6 +17,8 @@ FAQ_PDF_PATH = DATA_DIR / "FAQ_assessor_v1.1.pdf"
 load_dotenv(BASE_DIR / ".env")
 
 GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY")
+QDRANT_API_KEY  = os.getenv("QDRANT_API_KEY")
+QDRANT_ENDPOINT = os.getenv("QDRANT_ENDPOINT")
 GROQ_API_KEY    = os.getenv("GROQ_API_KEY")
 HOST_DB         = os.getenv("HOST_DB")
 PASSWORD_DB     = os.getenv("PASSWORD_DB")

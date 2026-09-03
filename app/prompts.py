@@ -47,7 +47,7 @@ ROUTER_PROMPT = f"""
 - financeiro : gastos, receitas, dívidas, orçamento, metas, saldo, investimentos.
 - agenda     : compromissos, eventos, lembretes, tarefas, horários, conflitos.
 - faq        : dúvidas sobre o Assessor.IA - regras, políticas, termos, responsabilidades, 
-               restrições, privacidade, segurança e comportamento previsto do sistema
+               restrições, privacidade, comunicação, segurança e comportamento previsto do sistema
 
 
 ### PROTOCOLO DE ENCAMINHAMENTO 
