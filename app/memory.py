@@ -3,8 +3,8 @@ import uuid
 from datetime import datetime, timezone
 from app.llms import llm_rapido
 from app.prompts import _PROMPT_RESUMO
-from app.db import get_mongo_conn
-
+from app.db import get_mongo_conn, get_qdrant_conn, gerar_embedding, COLLECTION_MEMORIA
+from qdrant_client import models
 
 # ==============================================================================
 # CONEXÃO
@@ -119,6 +119,7 @@ def encerrar_sessao(user_id) -> str:
     Retorna o resumo gerado ou string vazia se não houver mensagens.
     """
     doc_id = _doc_id_da_sessao(user_id)
+    qdrant = get_qdrant_conn()
 
     if not doc_id:
         return ""
@@ -136,11 +137,28 @@ def encerrar_sessao(user_id) -> str:
         {"$set": {"resumo": resumo, "atualizada_em": _agora()}},
     )
 
+    vetor = gerar_embedding(resumo)
+    qdrant.upsert(
+        collection_name=COLLECTION_MEMORIA,
+        points=[
+            models.PointStruct(
+                id=doc_id,
+                vector=vetor,
+                payload={
+                    "user_id":     user_id,
+                    "session_id":  doc_id,
+                    "resumo":      resumo,
+                    "iniciada_em": doc["iniciada_em"].isoformat(),
+                },
+            )
+        ],
+    )
+
     _sessoes_ativas.pop(user_id)
 
     return resumo
 
-def recuperar_historico(user_id: str, busca: str = "", limite: int = 3) -> list[dict]:
+def recuperar_passadas(user_id: str, limite: int = 3) -> list[dict]:
     """
     Recupera resumos de sessões ANTERIORES (já encerradas) de um usuário.
 
@@ -153,9 +171,6 @@ def recuperar_historico(user_id: str, busca: str = "", limite: int = 3) -> list[
     limite  : máximo de sessões retornadas (mais recentes primeiro)
     """
     filtro = {"user_id": user_id}
-
-    if busca:
-        filtro["resumo"] = {"$regex": busca, "$options": "i"}
 
     docs = (
         col_sessoes
@@ -170,6 +185,47 @@ def recuperar_historico(user_id: str, busca: str = "", limite: int = 3) -> list[
     ]
 
     return historico
+
+def recuperar_historico(user_id: str, busca: str = "", limite: int = 3) -> list[dict]:
+    if busca:
+        qdrant = get_qdrant_conn()
+        vetor = gerar_embedding(busca)
+        resultados = qdrant.query_points(
+            collection_name=COLLECTION_MEMORIA,
+            query=vetor,
+            query_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="user_id",
+                        match=models.MatchValue(value=user_id),
+                    )
+                ]
+            ),
+            limit=limite,
+        )
+
+        if resultados.points:
+            return [
+                {
+                    "doc_id":      ponto.id,
+                    "iniciada_em": ponto.payload.get("iniciada_em", ""),
+                    "resumo":      ponto.payload["resumo"],
+                }
+                for ponto in resultados.points
+            ]
+
+    filtro = {"user_id": user_id, "resumo": {"$nin": ["", None]}}
+    docs = (
+        col_sessoes
+        .find(filtro, {"resumo": 1, "iniciada_em": 1})
+        .sort("iniciada_em", -1)
+        .limit(limite)
+    )
+
+    return [
+        {"doc_id": d["_id"], "iniciada_em": d["iniciada_em"], "resumo": d["resumo"]}
+        for d in docs
+    ]
 
 def recuperar_mensagens(doc_id: str) -> list[dict]:
     """
@@ -187,8 +243,7 @@ def recuperar_mensagens_ativas(session_id: str) -> list[dict]:
     andamento quando o usuário retorna (ex.: ao recarregar a página).
 
     Diferente de recuperar_historico(), que busca resumos de sessões
-    PASSADAS já encerradas, para a ferramenta de memória de longo prazo
-    do LLM.
+    PASSADAS já encerradas
     """
     doc_id = _doc_id_da_sessao(session_id)
     return recuperar_mensagens(doc_id) if doc_id else []
