@@ -2,21 +2,21 @@
    Tokens
    ==================================================== */
 :root {
-  --bg: #0b0f14;
-  --panel: #10151c;
-  --panel-alt: #171f29;
-  --border: #232c38;
-  --border-soft: #1b232e;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-alt: #ffffff;
+  --border: #d8d8d8;
+  --border-soft: #7a7a7a;
 
-  --text: #e4eaf1;
+  --text: #836983;
   --text-muted: #7c8895;
   --text-faint: #4c5866;
 
-  --accent: #4fd1c5;
-  --accent-soft: rgba(79, 209, 197, 0.12);
-  --accent-strong: #7ee8dd;
+  --accent: #d14f87;
+  --accent-soft: rgba(232, 61, 226, 0.12);
+  --accent-strong: #d15088;
 
-  --user-bubble: #1c2b30;
+  --user-bubble: #ffade3;
   --user-border: #2a4a48;
 
   --error: #f97066;
@@ -36,9 +36,8 @@ html, body {
 
 body {
   background: var(--bg);
-  background-image:
-    radial-gradient(circle at 15% 0%, rgba(79, 209, 197, 0.06), transparent 40%),
-    radial-gradient(circle at 85% 100%, rgba(79, 209, 197, 0.04), transparent 45%);
+  background-image: url("./assets/stars.gif");
+  background-repeat: repeat;
   color: var(--text);
   font-family: var(--font-sans);
   display: flex;
@@ -119,6 +118,10 @@ body {
 .header__cursor {
   color: var(--accent);
   animation: blink 1.1s step-end infinite;
+}
+
+.header__pet {
+  height: 2rem;
 }
 
 @keyframes blink {
