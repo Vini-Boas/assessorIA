@@ -91,6 +91,8 @@ async function carregarHistorico(id) {
     }
     const mensagens = await response.json();
     thread.innerHTML = "";
+    thread.appendChild(threadEmpty);
+    threadEmpty.style.display = mensagens.length ? "none" : "block";
     mensagens.forEach(({ role, content }) => {
       adicionarMensagem({ tipo: role === "human" ? "user" : "assistant", texto: content });
     });
