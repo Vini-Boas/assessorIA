@@ -116,6 +116,7 @@ def encerrar_sessao(user_id) -> str:
       2. Gera resumo via LLM
       3. Atualiza documento com resumo e atualizada_em
       4. Remove sessão do estado interno
+      5. Remove mensagens ativas do grafo
     Retorna o resumo gerado ou string vazia se não houver mensagens.
     """
     doc_id = _doc_id_da_sessao(user_id)

@@ -20,6 +20,7 @@ from fastapi import APIRouter
 
 from app.memory import encerrar_sessao, iniciar_sessao, recuperar_passadas
 from app.schemas import SessionResponse
+from app.graph import limpar_mensagens
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -31,6 +32,7 @@ def iniciar(user_id: str, session_id: Optional[str] = None) -> SessionResponse:
 
 @router.post("/{user_id}/encerrar", response_model=SessionResponse)
 def encerrar(user_id: str) -> SessionResponse:
+    limpar_mensagens(user_id=user_id)
     resumo = encerrar_sessao(user_id)
     return SessionResponse(session_id=user_id, resumo=resumo or None)
 
