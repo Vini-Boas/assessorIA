@@ -11,7 +11,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import psycopg2
 from pymongo import MongoClient
 
-COLLECTION_MEMORIA = "memoria_resumos"
+COLLECTION_MEMORIA = "memoria_conversas"
 COLLECTION_FAQ     = "faq_chunks"
 EMBEDDING_DIM      = 768
 
