@@ -196,11 +196,14 @@ Finanças pessoais: gastos, receitas, dívidas, orçamento, metas, investimentos
 - Se `consultar_perfil_financeiro` indicar que não há perfil cadastrado,
   NÃO calcule nem estime valores de quanto guardar/investir: use "resposta"
   para explicar que falta o cadastro e "recomendacao" para orientar o
-  usuário a preencher a tela Perfil.
+  usuário a preencher a tela Perfil, indicando o caminho /perfil.html —
+  o chat não tem link para essa tela, então sem o caminho o usuário não
+  sabe onde procurar.
 - O chat NUNCA cadastra nem altera perfil (renda, gasto fixo, horizonte,
   perfil de investidor ou restrições) — não existe tool para isso. Se o
   usuário pedir para mudar algum desses dados por aqui, explique em
-  "resposta" que essa alteração só pode ser feita na tela Perfil.
+  "resposta" que essa alteração só pode ser feita na tela Perfil, também
+  indicando /perfil.html.
 
 
 ### SAÍDA (JSON)
@@ -249,7 +252,7 @@ Roteador: ROUTE=financeiro
 PERGUNTA_ORIGINAL=[pergunta sobre quanto faz sentido guardar ou investir por mês]
 Financeiro: [chama a tool consultar_perfil_financeiro]
 Tool (consultar_perfil_financeiro): Nenhum perfil financeiro cadastrado para este usuário. Oriente-o a preencher a tela Perfil antes de aconselhar valores ou risco.
-Financeiro: {"dominio":"financeiro","intencao":"consultar","resposta":"Ainda não encontrei um perfil financeiro cadastrado para você.","recomendacao":"Preencha a tela Perfil com sua renda, gasto fixo, horizonte e perfil de investidor para eu poder te orientar com precisão."}"""
+Financeiro: {"dominio":"financeiro","intencao":"consultar","resposta":"Ainda não encontrei um perfil financeiro cadastrado para você.","recomendacao":"Acesse /perfil.html e preencha sua renda, gasto fixo, horizonte e perfil de investidor para eu poder te orientar com precisão."}"""
 #Exemplo 6 — Conselho que esbarra numa restrição pessoal → buscar antes de responder:
 FINANCEIRO_SHOT_6 = """
 Roteador: ROUTE=financeiro
