@@ -14,8 +14,16 @@
 - `app/routes/__init__.py` -> registro do `perfil_router`.
 - `app/agents.py` -> as tools de perfil entram no `financeiro_app`.
 - `app/prompts.py` -> regras e exemplos novos no `FINANCEIRO_PROMPT` (quando consultar o perfil, o que fazer sem cadastro, e a recusa de alterar perfil pelo chat).
+- `app/config.py` -> rota `GET /perfil` (serve `perfil.html` sem a extensão `.html`), registrada antes do mount estático catch-all.
 
-Nenhum arquivo do frontend do chat (`frontend/js/app.js`, `frontend/html/index.html`, `frontend/css/style.css`) foi tocado.
+Nenhum arquivo do frontend do chat (`frontend/js/app.js`, `frontend/html/index.html`, `frontend/css/style.css`) foi tocado — seu conteúdo é o mesmo de antes, só mudou de pasta.
+
+**Reorganização do frontend** — antes um único diretório plano (`frontend/style.css`, `frontend/index.html`, `frontend/app.js`), agora separado por responsabilidade:
+- `frontend/css/` -> `style.css` (chat, renomeado) + `perfil.css` (novo)
+- `frontend/html/` -> `index.html` (chat, renomeado) + `perfil.html` (novo)
+- `frontend/js/` -> `app.js` (chat, renomeado) + `perfil.js` (novo)
+
+Isso é o que permite o `app/config.py::setup_frontend` montar cada tipo de asset em seu próprio prefixo (`/css`, `/js`, `/assets`) e servir os `.html` a partir de um único diretório — a tela Perfil entra nessa estrutura sem precisar de nenhuma regra nova de roteamento estático, só mais um arquivo em cada pasta.
 
 ## 2. Por onde o perfil entra, e onde cada parte dele é gravada?
 
