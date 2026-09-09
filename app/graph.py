@@ -17,7 +17,7 @@ from app.guardrail import (
     guardrail_entrada,
     anonimizar_entrada
 )
-from app.memory import salvar_mensagem, recuperar_mensagens_ativas
+from app.memory import salvar_mensagem, recuperar_mensagens_ativas, _doc_id_da_sessao
 
 # ==============================================================================
 # ESTADO
@@ -200,17 +200,14 @@ fluxo_agentes = grafo.compile(checkpointer=memory)
 # FLUXO PRINCIPAL
 # ==============================================================================
 def executar_fluxo_assessor(pergunta_usuario: str, user_id: str) -> str:
-    config = {"configurable": {"thread_id": user_id}}
+    config = {"configurable": {"thread_id": _doc_id_da_sessao(user_id)}}
 
     mensagens_previas = []
     if not fluxo_agentes.get_state(config).values.get("messages"):
-        print("tentando pegar aí mano, será que foi?")
         mensagens_previas = [
             {"role": msg["role"], "content": msg["content"]}
             for msg in recuperar_mensagens_ativas(user_id)
         ]
-
-    print(f"mensagens_previas, {mensagens_previas}")
 
     estado_inicial = {
         "messages":         mensagens_previas + [{"role": "human", "content": pergunta_usuario}],
@@ -233,15 +230,3 @@ def executar_fluxo_assessor(pergunta_usuario: str, user_id: str) -> str:
 
     print(f"[debug] agentes chamados: {estado_final['agentes_chamados']}")
     return resposta_final
-
-# ==============================================================================
-# Métodos
-# ==============================================================================
-
-def limpar_mensagens(user_id: str) -> None:
-    """
-    Remove todas as mensagens de uma sessão ativa do usuário.
-    """
-    estado = fluxo_agentes.get_state({"configurable": {"thread_id": user_id}})
-    if estado.values.get("messages"):
-        estado.values["messages"].clear()
