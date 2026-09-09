@@ -4,6 +4,7 @@
 // Ajuste para a URL onde o FastAPI está rodando.
 const API_BASE = "http://localhost:8000";
 const CHAT_ENDPOINT = `${API_BASE}/chat`;
+const HEALTH_ENDPOINT = `${API_BASE}/health`;
 
 // ============================================================
 // Elementos
@@ -18,6 +19,57 @@ const userIdEl = document.getElementById("user-id");
 const resetButton = document.getElementById("reset-session");
 const statusDot = document.getElementById("status-dot");
 const hint = document.getElementById("hint");
+const healthBanner = document.getElementById("health-banner");
+const healthBannerTitle = document.getElementById("health-banner-title");
+const healthBannerList = document.getElementById("health-banner-list");
+
+// ============================================================
+// Saúde do backend
+// ============================================================
+// GET /health devolve { status: "ok" | "atencao", problemas_de_configuracao: [...] }.
+// A UI reflete isso no dot do header e, se houver problemas, num banner
+// explicando o quê (útil pra não passar a sessão inteira sem saber que a
+// memória de longo prazo está silenciosamente quebrada, por exemplo).
+function exibirBannerSaude(titulo, problemas) {
+  healthBannerTitle.textContent = titulo;
+  healthBannerList.innerHTML = "";
+  (problemas || []).forEach((problema) => {
+    const item = document.createElement("li");
+    item.textContent = problema;
+    healthBannerList.appendChild(item);
+  });
+  healthBanner.hidden = false;
+}
+
+function ocultarBannerSaude() {
+  healthBanner.hidden = true;
+}
+
+async function verificarSaude() {
+  try {
+    const response = await fetch(HEALTH_ENDPOINT);
+    if (!response.ok) throw new Error("Backend respondeu com erro");
+
+    const { status, problemas_de_configuracao } = await response.json();
+    const saudavel = status === "ok";
+    marcarStatus(saudavel);
+
+    if (saudavel) {
+      ocultarBannerSaude();
+    } else {
+      exibirBannerSaude(
+        "Backend com pendências de configuração:",
+        problemas_de_configuracao
+      );
+    }
+  } catch (error) {
+    console.error("Erro ao verificar saúde do backend:", error);
+    marcarStatus(false);
+    exibirBannerSaude("Não foi possível falar com o backend.", [
+      `Verifique se o servidor está rodando em ${API_BASE}.`,
+    ]);
+  }
+}
 
 // ============================================================
 // Sessão
@@ -142,6 +194,9 @@ function exibirUserId(id) {
 let userId = null;
 
 (async function inicializarSessao() {
+  await verificarSaude();
+  setInterval(verificarSaude, 30000);
+
   userId = await obterUserId();
   exibirUserId(userId);
   await registrarSessaoNoBackend(userId);
