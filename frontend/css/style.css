@@ -36,7 +36,7 @@ html, body {
 
 body {
   background: var(--bg);
-  background-image: url("./assets/stars.gif");
+  background-image: url("/assets/stars.gif");
   background-repeat: repeat;
   color: var(--text);
   font-family: var(--font-sans);
