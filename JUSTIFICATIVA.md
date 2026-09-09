@@ -49,4 +49,4 @@ Porque perfil não é uma intenção que o usuário expressa no chat — ningué
 
 ## 8. Qual a vantagem do chat não alterar o cadastro?
 
-Existe uma única fonte de verdade e um único caminho auditável de escrita (o formulário → `POST /perfil`). Isso evita que o modelo "negocie" mudanças de perfil dentro de uma conversa. Por exemplo, alguém tentando convencer o assistente a aumentar a renda cadastrada para liberar um conselho mais agressivo, além de manter a validação de contrato (tipos, faixas, relação renda × gasto) como o único portão de entrada para qualquer alteração.
+Existe uma única fonte de verdade e um único caminho auditável de escrita (o formulário → `POST /perfil`). Isso evita que o modelo "negocie" mudanças de perfil dentro de uma conversa. Por exemplo, alguém tentando convencer o assistente a aumentar a renda cadastrada para liberar um conselho mais agressivo.
