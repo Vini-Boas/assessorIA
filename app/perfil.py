@@ -22,7 +22,19 @@ _mongo      = get_mongo_conn()
 db          = _mongo["assessor"]
 col_perfis  = db["perfis"]
 
-garantir_colecao_qdrant(COLLECTION_PERFIL_RESTRICOES, campos_indexados=["user_id"])
+_colecao_perfil_pronta = False
+
+def _garantir_colecao_perfil() -> None:
+    """
+    Garante a collection do Qdrant sob demanda, no primeiro uso — não no
+    import do módulo. Assim, um Qdrant fora do ar no boot não derruba o
+    processo inteiro (e com ele finanças/agenda/FAQ/memória), só a
+    funcionalidade de perfil na primeira chamada que precisar dela.
+    """
+    global _colecao_perfil_pronta
+    if not _colecao_perfil_pronta:
+        garantir_colecao_qdrant(COLLECTION_PERFIL_RESTRICOES, campos_indexados=["user_id"])
+        _colecao_perfil_pronta = True
 
 def _agora() -> datetime:
     return datetime.now(timezone.utc)
@@ -66,6 +78,7 @@ def salvar_perfil(perfil: PerfilRequest) -> dict:
 
 def _reindexar_restricoes(user_id: str, restricoes: list[str]) -> None:
     """Apaga as restrições antigas deste usuário e insere as novas, uma por ponto."""
+    _garantir_colecao_perfil()
     qdrant = get_qdrant_conn()
 
     qdrant.delete(
@@ -118,6 +131,7 @@ def buscar_restricoes_relevantes(user_id: str, situacao: str, limite: int = 5) -
     0.74 vs 0.66), e um corte agressivo (ex. top-1) arrisca descartar
     justamente a restrição que a pergunta esperava encontrar.
     """
+    _garantir_colecao_perfil()
     qdrant = get_qdrant_conn()
     vetor  = gerar_embedding(situacao)
 
