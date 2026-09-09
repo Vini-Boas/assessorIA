@@ -27,17 +27,29 @@ PORT_DB         = os.getenv("PORT_DB")
 DEFAULT_DB      = os.getenv("DEFAULT_DB")
 MONGODB_URI     = os.getenv("ATLAS_URI")
 FRONTEND_DIR    = BASE_DIR / "frontend"
-URL_DB          = os.getenv("URL_DB", f"postgresql://{USERNAME_DB}:{PASSWORD_DB}@{HOST_DB}:{PORT_DB}/{DEFAULT_DB}")
 
+URL_DB = os.getenv("URL_DB")
+_DB_PARTS   = {
+    "HOST_DB":     HOST_DB,
+    "PASSWORD_DB": PASSWORD_DB,
+    "USERNAME_DB": USERNAME_DB,
+    "PORT_DB":     PORT_DB,
+    "DEFAULT_DB":  DEFAULT_DB,
+}
+
+if all(_DB_PARTS.values()):
+    URL_DB = f"postgresql://{USERNAME_DB}:{PASSWORD_DB}@{HOST_DB}:{PORT_DB}/{DEFAULT_DB}"
+elif not URL_DB:
+    URL_DB = None
+
+# Variáveis sempre obrigatórias, independente de como o DB é configurado.
 OBRIGATORIAS = {
-    "GEMINI_API_KEY": GEMINI_API_KEY,
-    "GROQ_API_KEY":   GROQ_API_KEY,
-    "HOST_DB":        HOST_DB,
-    "PASSWORD_DB":    PASSWORD_DB,
-    "USERNAME_DB":    USERNAME_DB,
-    "PORT_DB":        PORT_DB,
-    "DEFAULT_DB":     DEFAULT_DB,
-    "MONGODB_URI":    MONGODB_URI,
+    "GEMINI_API_KEY":  GEMINI_API_KEY,
+    "GROQ_API_KEY":    GROQ_API_KEY,
+    "MONGODB_URI":     MONGODB_URI,
+    "QDRANT_API_KEY":  QDRANT_API_KEY,
+    "QDRANT_ENDPOINT": QDRANT_ENDPOINT,
+    "URL_DB":          URL_DB,
 }
 
 # ==============================================================================
