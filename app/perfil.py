@@ -57,7 +57,6 @@ def salvar_perfil(perfil: PerfilRequest) -> dict:
     agora = _agora()
 
     documento_estruturado = {
-        "user_id":             perfil.user_id,
         "renda_mensal":        perfil.renda_mensal,
         "gasto_fixo_mensal":   perfil.gasto_fixo_mensal,
         "horizonte_meses":     perfil.horizonte_meses,
@@ -74,7 +73,7 @@ def salvar_perfil(perfil: PerfilRequest) -> dict:
 
     _reindexar_restricoes(perfil.user_id, perfil.restricoes)
 
-    return documento_estruturado
+    return {"user_id": perfil.user_id, **documento_estruturado}
 
 def _reindexar_restricoes(user_id: str, restricoes: list[str]) -> None:
     """Apaga as restrições antigas deste usuário e insere as novas, uma por ponto."""
