@@ -23,7 +23,7 @@ from app.perfil import buscar_perfil_estruturado, buscar_restricoes_relevantes
 
 def _user_id_da_config(config: RunnableConfig) -> str | None:
     configuravel = (config or {}).get("configurable", {})
-    return configuravel.get("user_id") or configuravel.get("thread_id")
+    return configuravel.get("user_id")
 
 @tool
 def consultar_perfil_financeiro(config: RunnableConfig) -> str:
