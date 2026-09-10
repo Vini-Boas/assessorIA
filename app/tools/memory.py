@@ -22,7 +22,7 @@ def buscar_historico(busca: str, config: RunnableConfig) -> str:
         busca: assunto a procurar nos resumos das conversas anteriores.
     """
     configuravel = (config or {}).get("configurable", {})
-    user_id      = configuravel.get("user_id") or configuravel.get("thread_id")
+    user_id      = configuravel.get("user_id")
 
     if not user_id:
         return "Não foi possível identificar o usuário para buscar o histórico."
