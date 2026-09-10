@@ -160,6 +160,8 @@ body {
   border-radius: 5px;
   padding: 4px 9px;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
   transition: border-color 0.15s, color 0.15s;
 }
 

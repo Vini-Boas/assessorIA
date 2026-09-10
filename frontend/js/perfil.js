@@ -1,17 +1,56 @@
 /* ====================================================
-   Tela Perfil — envio do formulário.
+    Tela Perfil — envio do formulário.
 
-   Esta tela só ESCREVE. Ela não carrega o perfil salvo ao abrir,
-   e a API não precisa expor rota de leitura.
+    Esta tela só ESCREVE. Ela não carrega o perfil salvo ao abrir,
+    e a API não precisa expor rota de leitura.
 
-   O campo "restricoes" é uma lista: o que for enviado substitui
-   inteiramente o que estava salvo antes.
+    O campo "restricoes" é uma lista: o que for enviado substitui
+    inteiramente o que estava salvo antes.
    ==================================================== */
 
-// Precisa ser o mesmo usuário que o chat usa. Se o backend usar outro
-// identificador quando o front não manda user_id, o assessor não vai
+// Precisa ser o mesmo usuário que o chat usa (mesma lógica de app.js,
+// inclusive a mesma chave de localStorage) — senão o assessor não vai
 // encontrar o perfil cadastrado aqui.
-const USER_ID = 'usuario_teste';
+const USER_STORAGE_KEY = "assistente_user_id";
+
+async function getIP() {
+  try {
+    const response = await fetch("https://ipinfo.io/json");
+    const data = await response.json();
+    return data.ip || null;
+  } catch (error) {
+    console.error("Erro ao obter o IP:", error);
+    return null;
+  }
+}
+
+function gerarUserIdTemporario() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback para contextos sem crypto.randomUUID (ex.: http:// não-localhost).
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+// O IP é a identidade permanente da pessoa;
+async function obterUserId() {
+  const ip = await getIP();
+  if (ip) {
+    localStorage.setItem(USER_STORAGE_KEY, ip);
+    return ip;
+  }
+
+  const emCache = localStorage.getItem(USER_STORAGE_KEY);
+  if (emCache) return emCache;
+
+  const temporario = gerarUserIdTemporario();
+  localStorage.setItem(USER_STORAGE_KEY, temporario);
+  return temporario;
+}
 
 // A rota que a sua API precisa expor.
 const ENDPOINT = '/perfil';
@@ -35,7 +74,12 @@ const els = {
   echoBody: document.getElementById('echo-body'),
 };
 
-els.badge.textContent = USER_ID;
+let userId = null;
+
+(async () => {
+  userId = await obterUserId();
+  els.badge.textContent = userId;
+})();
 
 /* ---------------------------------------------- lista de restrições */
 
@@ -100,7 +144,7 @@ function montarPayload() {
   // Campos vazios viram null de propósito, e a relação entre renda e gasto
   // não é conferida aqui: quem valida é a API, não esta tela.
   return {
-    user_id: USER_ID,
+    user_id: userId,
     renda_mensal: numeroOuNulo(els.renda.value),
     gasto_fixo_mensal: numeroOuNulo(els.gasto.value),
     horizonte_meses: numeroOuNulo(els.horizonte.value),
@@ -115,6 +159,10 @@ function mostrarResposta(dados) {
 }
 
 async function salvar() {
+  if (!userId) {
+    userId = await obterUserId();
+    els.badge.textContent = userId;
+  }
   const payload = montarPayload();
 
   els.submit.disabled = true;

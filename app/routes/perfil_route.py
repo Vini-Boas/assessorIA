@@ -11,10 +11,16 @@ inválido nunca entra nesta função, o FastAPI já devolve 422 sozinho.
 """
 
 from fastapi import APIRouter
+from fastapi.responses import FileResponse
 from app.schemas import PerfilRequest
 from app.perfil import salvar_perfil
+from app.config import FRONTEND_DIR
 
 router = APIRouter(tags=["perfil"])
+
+@router.get("/perfil")
+def perfil_page() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "html" / "perfil.html")
 
 @router.post("/perfil")
 def perfil(request: PerfilRequest) -> dict:
