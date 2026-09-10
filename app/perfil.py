@@ -119,17 +119,13 @@ def buscar_perfil_estruturado(user_id: str) -> Optional[dict]:
     """Retorna o dado estruturado do usuário, ou None se não houver cadastro."""
     return col_perfis.find_one({"_id": user_id})
 
-def buscar_restricoes_relevantes(user_id: str, situacao: str, limite: int = 5) -> list[str]:
+def buscar_restricoes_relevantes(user_id: str, situacao: str, limite: int = 2) -> list[str]:
     """
     Busca semântica: retorna as restrições deste usuário ordenadas pela
     proximidade com `situacao`. Filtra por user_id — o perfil de um usuário
     nunca aparece na busca de outro.
 
-    limite=5 por padrão (== MAX_RESTRICOES do formulário): com um cadastro
-    tão pequeno, o valor da busca vetorial é ORDENAR pela relevância, não
-    cortar candidatas — os scores entre frases curtas ficam próximos (ex.:
-    0.74 vs 0.66), e um corte agressivo (ex. top-1) arrisca descartar
-    justamente a restrição que a pergunta esperava encontrar.
+    limite=2 por padrão.
     """
     _garantir_colecao_perfil()
     qdrant = get_qdrant_conn()

@@ -2,5 +2,5 @@ from .chat_route import router as chat_router
 from .session_route import router as session_router
 from .perfil_route import router as perfil_router
 
-# Combine all routers into a single list or dictionary if needed
+# Combine all routers into a single list for main.py
 routers = [chat_router, session_router, perfil_router]
