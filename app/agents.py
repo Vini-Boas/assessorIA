@@ -10,9 +10,10 @@ from app.prompts import (
 from app.tools.financeiro import TOOLS as financeiro_tools
 from app.tools.faq import TOOLS as faq_tools
 from app.tools.memory import TOOLS as memory_tools
+from app.tools.perfil import TOOLS as perfil_tools
 
 router_app       = create_agent(model=llm_rapido,       system_prompt=ROUTER_PROMPT_COMPLETO,       tools=memory_tools)
 agenda_app       = create_agent(model=llm_especialista, system_prompt=AGENDA_PROMPT_COMPLETO,       tools=memory_tools)
-financeiro_app   = create_agent(model=llm_especialista, system_prompt=FINANCEIRO_PROMPT_COMPLETO,   tools=financeiro_tools + memory_tools)
+financeiro_app   = create_agent(model=llm_especialista, system_prompt=FINANCEIRO_PROMPT_COMPLETO,   tools=financeiro_tools + memory_tools + perfil_tools)
 orquestrador_app = create_agent(model=llm_rapido,       system_prompt=ORQUESTRADOR_PROMPT_COMPLETO)
 faq_app          = create_agent(model=llm_rapido,       system_prompt=FAQ_PROMPT,                   tools=faq_tools)

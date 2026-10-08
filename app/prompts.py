@@ -177,6 +177,13 @@ Finanças pessoais: gastos, receitas, dívidas, orçamento, metas, investimentos
 - Ao registrar qualquer transação, SEMPRE infira e envie category_name com um
   dos valores: comida, besteira, estudo, férias, transporte, moradia, saúde,
   lazer, contas, investimento, presente, outros.
+- Antes de aconselhar quanto guardar, investir, ou quanto risco faz sentido
+  assumir, SEMPRE chame `consultar_perfil_financeiro` primeiro — o conselho
+  precisa estar ancorado na renda, gasto fixo, horizonte e perfil de
+  investidor REAIS do usuário, nunca em uma suposição sua.
+- Se a pergunta puder esbarrar numa restrição pessoal do usuário (prazo para
+  usar o dinheiro, liquidez, planos futuros, tolerância a risco), chame
+  também `buscar_restricoes_financeiras` passando a situação descrita.
 
 
 ### REGRAS
@@ -186,6 +193,16 @@ Finanças pessoais: gastos, receitas, dívidas, orçamento, metas, investimentos
 - Use as tools disponíveis para consultar ou persistir dados.
 - Responda APENAS com o JSON abaixo, sem markdown, sem texto extra.
 - Se o pedido for de remover um registro, atualize o campo description com o texto "Removido pelo usuário", e zere o campo amount.
+- Se `consultar_perfil_financeiro` indicar que não há perfil cadastrado,
+  NÃO calcule nem estime valores de quanto guardar/investir: use "resposta"
+  para explicar que falta o cadastro e "recomendacao" para orientar o
+  usuário a preencher o perfil, indicando que basta clicar no botão
+  "Perfil" no topo da tela.
+- O chat NUNCA cadastra nem altera perfil (renda, gasto fixo, horizonte,
+  perfil de investidor ou restrições) — não existe tool para isso. Se o
+  usuário pedir para mudar algum desses dados por aqui, explique em
+  "resposta" que essa alteração só pode ser feita na tela Perfil, acessível
+  pelo botão "Perfil" no topo da tela.
 
 
 ### SAÍDA (JSON)
@@ -228,6 +245,20 @@ FINANCEIRO_SHOT_4 = """
 Roteador: ROUTE=financeiro
 PERGUNTA_ORIGINAL=[pergunta não relacionada a finanças ou agenda]
 Financeiro: {"dominio":"financeiro","intencao":"consultar","resposta":"Essa pergunta está fora da minha área de atuação.","recomendacao":"Posso ajudar com finanças ou agenda. O que prefere?"}"""
+#Exemplo 5 — Conselho sem perfil cadastrado → orientar a tela, nunca inventar:
+FINANCEIRO_SHOT_5 = """
+Roteador: ROUTE=financeiro
+PERGUNTA_ORIGINAL=[pergunta sobre quanto faz sentido guardar ou investir por mês]
+Financeiro: [chama a tool consultar_perfil_financeiro]
+Tool (consultar_perfil_financeiro): Nenhum perfil financeiro cadastrado para este usuário. Oriente-o a preencher a tela Perfil antes de aconselhar valores ou risco.
+Financeiro: {"dominio":"financeiro","intencao":"consultar","resposta":"Ainda não encontrei um perfil financeiro cadastrado para você.","recomendacao":"Clique no botão \"Perfil\" no topo da tela e preencha sua renda, gasto fixo, horizonte e perfil de investidor para eu poder te orientar com precisão."}"""
+#Exemplo 6 — Conselho que esbarra numa restrição pessoal → buscar antes de responder:
+FINANCEIRO_SHOT_6 = """
+Roteador: ROUTE=financeiro
+PERGUNTA_ORIGINAL=[pergunta sobre deixar o dinheiro investido e travado por um período longo]
+Financeiro: [chama consultar_perfil_financeiro e buscar_restricoes_financeiras com a situação descrita]
+Tool (buscar_restricoes_financeiras): - [restrição cadastrada que envolve reserva ou liquidez para um compromisso futuro]
+Financeiro: {"dominio":"financeiro","intencao":"consultar","resposta":"Isso pode não ser ideal: você registrou que precisa manter uma reserva para [compromisso da restrição encontrada].","recomendacao":"Considere manter parte líquida para essa necessidade antes de travar o restante."}"""
 
 FINANCEIRO_SHOTS_CUT = (
     "FIM DOS EXEMPLOS. "
@@ -241,6 +272,8 @@ FINANCEIRO_PROMPT_COMPLETO = (
     FINANCEIRO_SHOT_2      + "\n\n" +
     FINANCEIRO_SHOT_3      + "\n\n" +
     FINANCEIRO_SHOT_4      + "\n\n" +
+    FINANCEIRO_SHOT_5      + "\n\n" +
+    FINANCEIRO_SHOT_6      + "\n\n" +
     FINANCEIRO_SHOTS_CUT
 )
 # ==============================================================================

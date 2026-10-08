@@ -6,14 +6,17 @@ from app.config import (
     GEMINI_API_KEY
 )
 from qdrant_client import QdrantClient
+from qdrant_client import models as qdrant_models
+from qdrant_client.http.exceptions import UnexpectedResponse
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 import psycopg2
 from pymongo import MongoClient
 
-COLLECTION_MEMORIA = "memoria_conversas"
-COLLECTION_FAQ     = "faq_chunks"
-EMBEDDING_DIM      = 768
+COLLECTION_MEMORIA           = "memoria_conversas"
+COLLECTION_FAQ               = "faq_chunks"
+COLLECTION_PERFIL_RESTRICOES = "perfil_restricoes"
+EMBEDDING_DIM                = 768
 
 _pgsql_conn = None
 _mongo_conn = None
@@ -41,6 +44,37 @@ def get_qdrant_conn():
     if _qdrant_conn is None:
         _qdrant_conn = QdrantClient(url=QDRANT_ENDPOINT, api_key=QDRANT_API_KEY)
     return _qdrant_conn
+
+def garantir_colecao_qdrant(nome: str, dim: int = EMBEDDING_DIM, campos_indexados: list[str] | None = None) -> None:
+    """
+    Garante que uma collection exista no Qdrant, criando-a se necessário.
+
+    Usa a MESMA instância Qdrant já configurada (não sobe nada novo) — só
+    cria a collection na primeira vez que alguém grava nela.
+
+    `campos_indexados`: campos de payload (tipo keyword) usados em filtros
+    (ex.: "user_id"). O Qdrant Cloud recusa `query_filter`/`delete` por um
+    campo sem índice — sem isso, filtrar por user_id vira 400.
+    """
+    qdrant = get_qdrant_conn()
+    try:
+        qdrant.get_collection(nome)
+        return
+    except UnexpectedResponse:
+        qdrant.create_collection(
+            collection_name=nome,
+            vectors_config=qdrant_models.VectorParams(
+                size=dim,
+                distance=qdrant_models.Distance.COSINE,
+            ),
+        )
+
+    for campo in campos_indexados or []:
+        qdrant.create_payload_index(
+            collection_name=nome,
+            field_name=campo,
+            field_schema=qdrant_models.PayloadSchemaType.KEYWORD,
+        )
 
 def pgsql_disconnect():
     global _pgsql_conn

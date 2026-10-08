@@ -200,7 +200,7 @@ fluxo_agentes = grafo.compile(checkpointer=memory)
 # FLUXO PRINCIPAL
 # ==============================================================================
 def executar_fluxo_assessor(pergunta_usuario: str, user_id: str) -> str:
-    config = {"configurable": {"thread_id": _doc_id_da_sessao(user_id)}}
+    config = {"configurable": {"thread_id": _doc_id_da_sessao(user_id), "user_id": user_id}}
 
     mensagens_previas = []
     if not fluxo_agentes.get_state(config).values.get("messages"):
@@ -221,7 +221,7 @@ def executar_fluxo_assessor(pergunta_usuario: str, user_id: str) -> str:
 
     estado_final = fluxo_agentes.invoke(
         estado_inicial,
-        config={"configurable": {"thread_id": user_id}},
+        config=config,
     )
 
     resposta_final = estado_final["messages"][-1].text

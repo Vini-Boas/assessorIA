@@ -66,8 +66,12 @@ def setup_middleware(app):
     )
 
 def setup_frontend(app):
-    if (FRONTEND_DIR / "index.html").exists():
-        app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    html_dir = FRONTEND_DIR / "html"
+    if (html_dir / "index.html").exists():
+        app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="frontend-css")
+        app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="frontend-js")
+        app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="frontend-assets")
+        app.mount("/", StaticFiles(directory=html_dir, html=True), name="frontend")
     else:
         @app.get("/")
         async def root():
