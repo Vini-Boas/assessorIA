@@ -1,5 +1,6 @@
 import operator
 from typing import Annotated
+
 from groq import BadRequestError as GroqBadRequestError
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, MessagesState, END
@@ -18,6 +19,7 @@ from app.guardrail import (
     anonimizar_entrada
 )
 from app.memory import salvar_mensagem, recuperar_mensagens_ativas, _doc_id_da_sessao
+from app.observability import abrir_turno, fechar_turno, status_do_estado
 
 # ==============================================================================
 # ESTADO
@@ -101,7 +103,7 @@ def no_roteador(estado: Estado, config: RunnableConfig) -> dict:
 # NÓ ORQUESTRADOR — wrapper para capturar agentes_chamados via rota
 # ==============================================================================
 
-def no_orquestrador(estado: Estado) -> dict:
+def no_orquestrador(estado: Estado, config: RunnableConfig) -> dict:
     # Pega a última resposta do especialista (última AIMessage com conteúdo)
     ultima_especialista = ""
     for mensagem in reversed(estado["messages"]):
@@ -111,7 +113,7 @@ def no_orquestrador(estado: Estado) -> dict:
     
     saida = orquestrador_app.invoke({
         "messages": {"role": "human", "content": ultima_especialista}
-    })
+    }, config = config)
 
     return {
         "agentes_chamados": ["orquestrador"],
@@ -122,7 +124,7 @@ def no_orquestrador(estado: Estado) -> dict:
 # NÓ ENTRADA DE GUARDRAIL — Guardrail para a entrada
 # ==============================================================================
 
-def no_entrada_guardrail(estado: Estado) -> dict:
+def no_entrada_guardrail(estado: Estado, config: RunnableConfig) -> dict:
     # Pega a última resposta do especialista (última AIMessage com conteúdo)
     pergunta_usuario = estado["messages"][-1]
 
@@ -200,7 +202,8 @@ fluxo_agentes = grafo.compile(checkpointer=memory)
 # FLUXO PRINCIPAL
 # ==============================================================================
 def executar_fluxo_assessor(pergunta_usuario: str, user_id: str) -> str:
-    config = {"configurable": {"thread_id": _doc_id_da_sessao(user_id)}}
+    session_id = _doc_id_da_sessao(user_id)
+    config = {"configurable": {"thread_id": session_id}}
 
     mensagens_previas = []
     if not fluxo_agentes.get_state(config).values.get("messages"):
@@ -219,14 +222,21 @@ def executar_fluxo_assessor(pergunta_usuario: str, user_id: str) -> str:
     texto_anonimizado, _ = anonimizar_entrada(pergunta_usuario)
     salvar_mensagem(user_id, "human", texto_anonimizado)
 
-    estado_final = fluxo_agentes.invoke(
-        estado_inicial,
-        config={"configurable": {"thread_id": user_id}},
-    )
+    turno_id = abrir_turno()
+    rota = ""
+    status = "erro"
+    try:
+        estado_final = fluxo_agentes.invoke(
+            estado_inicial,
+            config={"configurable": {"thread_id": user_id}},
+        )
 
-    resposta_final = estado_final["messages"][-1].text
+        resposta_final = estado_final["messages"][-1].text
+        salvar_mensagem(user_id, "assistant", resposta_final)
 
-    salvar_mensagem(user_id, "assistant", resposta_final)
+        status = status_do_estado(estado_final)
+        rota = estado_final.get("rota") or ""
 
-    print(f"[debug] agentes chamados: {estado_final['agentes_chamados']}")
-    return resposta_final
+        return resposta_final
+    finally:
+        fechar_turno(turno_id, session_id=user_id, rota=rota, status=status)
